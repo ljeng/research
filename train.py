@@ -1,3 +1,4 @@
+import copy
 import pathlib
 import const
 import torch
@@ -19,7 +20,6 @@ class Trainer:
         )
         self.cross_entropy_loss = nn.CrossEntropyLoss()
         self.optim = torch.optim.Adam(self.model.parameters())
-        self.history = []
 
     def train(self, loader):
         self.model.train()
@@ -64,3 +64,37 @@ class Trainer:
             for i, j in enumerate(tensor)
         ]
 
+    def run_training(self):
+        history = []
+        data_dir = pathlib.Path(__file__).resolve().parent / 'data'
+        dataset = datasets.FashionMNIST(data_dir,
+            train=True,
+            download=True,
+            transform=ToTensor())
+        train_data, validation_data = torch.utils.data.random_split(dataset,
+            [len(dataset) - const.LENGTH, const.LENGTH])
+        train_loader = DataLoader(train_data,
+            batch_size=const.BATCH_SIZE,
+            shuffle=True)
+        data_loader = DataLoader(validation_data,
+            batch_size=const.BATCH_SIZE)
+        eq = -1
+        for i in range(1, const.N + 1):
+            train = self.train(train_loader)
+            evaluation = self.evaluate(data_loader)
+            history.append({'epoch': i, 'train': train, 'validation': evaluation})
+            if validation_metrics['eq'] > eq:
+                eq = validation_metrics['eq']
+                state_dict = copy.deepcopy(self.model.state_dict())
+                j = i
+        self.model.load_state_dict(state_dict)
+        dataset = datasets.FashionMNIST(data_dir,
+            train=False,
+            download=True,
+            transform=ToTensor())
+        data_loader = DataLoader(test_data, batch_size=const.BATCH_SIZE)
+        test_metrics = self.evaluate(data_loader)
+        test_metrics['j'] = j
+        return {'history': history,
+            'test': test_metrics,
+            'predictions': self.predict(test_data)}
